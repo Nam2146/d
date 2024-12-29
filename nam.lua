@@ -6,6 +6,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+
 local src = ReplicatedStorage.src
 local pcar = src.pcar
 
@@ -14,6 +15,7 @@ local CarPlacer = require(pcar.CarPlacer)
 local CarTracker = require(pcar.CarTracker)
 local ClientCarState = require(pcar.ClientCarState)
 
+-- Create Toggle UI Button
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CarToggleGui"
 ScreenGui.Parent = CoreGui
@@ -25,17 +27,18 @@ ToggleButton.Position = UDim2.new(0.5, -100, 0, 0)
 ToggleButton.Text = "Enable Car Script"
 ToggleButton.Parent = ScreenGui
 
-local isScriptEnabled = false
-local isAutoRaceEnabled = false
-local currentCheckpointIndex = 1
-local raceTrack = {
-    Vector3.new(0, 0, 0),
-    Vector3.new(50, 0, 100),
-    Vector3.new(100, 0, 200),
-    Vector3.new(200, 0, 300),
-    Vector3.new(300, 0, 400),
+local isScriptEnabled = false -- Variable to track script state
+local isAutoRaceEnabled = false -- Variable to track auto race state
+local currentCheckpointIndex = 1 -- Index to track which checkpoint the car is aiming for
+local raceTrack = { -- A table containing the list of checkpoints (Vector3 positions)
+    Vector3.new(0, 0, 0),           -- Start point
+    Vector3.new(50, 0, 100),        -- First checkpoint
+    Vector3.new(100, 0, 200),       -- Second checkpoint
+    Vector3.new(200, 0, 300),       -- Third checkpoint
+    Vector3.new(300, 0, 400),       -- Finish line
 }
 
+-- Function to handle enabling/disabling the script
 local function toggleScript()
     isScriptEnabled = not isScriptEnabled
     if isScriptEnabled then
@@ -47,16 +50,19 @@ end
 
 ToggleButton.MouseButton1Click:Connect(toggleScript)
 
+-- Function to start Auto Race
 local function startAutoRace()
     isAutoRaceEnabled = true
     print("Auto Race Started!")
 end
 
+-- Function to stop Auto Race
 local function stopAutoRace()
     isAutoRaceEnabled = false
     print("Auto Race Stopped!")
 end
 
+-- Check if driving before running the main logic
 local function executeScript()
     if not ClientCarState.isDriving then
         local Hint = Instance.new("Hint")
@@ -76,6 +82,10 @@ local function executeScript()
         end
     end
 
+    hookfunction(CarInput.GetNitro, function()
+        return true
+    end)
+
     local _, Size = CarTracker.getCarFromDriver(LocalPlayer):GetBoundingBox()
 
     local Part = Instance.new("Part")
@@ -92,18 +102,24 @@ local function executeScript()
         local car = CarTracker.getCarFromDriver(LocalPlayer)
         local carPosition = car.PrimaryPart.Position
 
+        -- If Auto Race is enabled
         if isAutoRaceEnabled then
+            -- Get the next checkpoint the car should head to
             local checkpoint = raceTrack[currentCheckpointIndex]
+            
+            -- Move the car towards the checkpoint
             local direction = (checkpoint - carPosition).unit
             car:SetPrimaryPartCFrame(car.PrimaryPart.CFrame + direction * 10)
 
+            -- Check if the car reached the checkpoint
             if (carPosition - checkpoint).Magnitude < 10 then
                 print("Checkpoint " .. currentCheckpointIndex .. " reached!")
                 currentCheckpointIndex = currentCheckpointIndex + 1
 
+                -- Check if we've reached the final checkpoint (finish line)
                 if currentCheckpointIndex > #raceTrack then
                     print("You won the race!")
-                    stopAutoRace()
+                    stopAutoRace() -- Stop the race when finished
                 end
             end
         end
@@ -112,12 +128,14 @@ local function executeScript()
     print("Script Executed!")
 end
 
+-- Toggle the script on or off
 RunService.RenderStepped:Connect(function()
     if isScriptEnabled then
         executeScript()
     end
 end)
 
+-- Example of starting/stopping the auto race
 local startRaceButton = Instance.new("TextButton")
 startRaceButton.Size = UDim2.new(0, 200, 0, 50)
 startRaceButton.Position = UDim2.new(0.5, -100, 0, 60)
@@ -125,29 +143,3 @@ startRaceButton.Text = "Start Auto Race"
 startRaceButton.Parent = ScreenGui
 
 startRaceButton.MouseButton1Click:Connect(startAutoRace)
-
-local Debounce = false
-local RBXScriptSignal = nil
-
-RunService.RenderStepped:Connect(function(...)
-    if CarTracker.getCarFromDriver(LocalPlayer) then
-        if not Debounce then
-            Debounce = true
-            table.foreachi(getconnections(RunService.Stepped), function(_, Value, ...)
-                if Value.Function and getfenv(Value.Function).script.Name == "CarClient" then
-                    RBXScriptSignal = RunService.RenderStepped:Connect(function(...)
-                        debug.setupvalue(Value.Function, 21, 3)
-                    end)
-                    return
-                else
-                    return
-                end
-            end)
-        end
-    else
-        if Debounce then
-            Debounce = false
-            RBXScriptSignal:Disconnect()
-        end
-    end
-end)
