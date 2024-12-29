@@ -76,10 +76,6 @@ local function executeScript()
         end
     end
 
-    hookfunction(CarInput.GetNitro, function()
-        return true
-    end)
-
     local _, Size = CarTracker.getCarFromDriver(LocalPlayer):GetBoundingBox()
 
     local Part = Instance.new("Part")
